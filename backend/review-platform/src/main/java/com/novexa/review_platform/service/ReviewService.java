@@ -1,5 +1,10 @@
 package com.novexa.review_platform.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
 import com.novexa.review_platform.dto.ReviewRequest;
 import com.novexa.review_platform.entity.Review;
 import com.novexa.review_platform.entity.Software;
@@ -7,11 +12,8 @@ import com.novexa.review_platform.entity.User;
 import com.novexa.review_platform.repository.ReviewRepository;
 import com.novexa.review_platform.repository.SoftwareRepository;
 import com.novexa.review_platform.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +47,10 @@ public class ReviewService {
         return reviewRepository.findBySoftwareId(softwareId);
     }
 
+    public List<Review> getReviewsByUser(Long userId) {
+        return reviewRepository.findByUserId(userId);
+    }
+
     public Double getAverageRating(Long softwareId) {
 
         List<Review> reviews = reviewRepository.findBySoftwareId(softwareId);
@@ -58,4 +64,23 @@ public class ReviewService {
                 .average()
                 .orElse(0.0);
     }
+
+    public Review updateReview(Long id, ReviewRequest request) {
+    Review review = reviewRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Review not found"));
+
+    review.setRating(request.getRating());
+    review.setTitle(request.getTitle());
+    review.setComment(request.getComment());
+
+    return reviewRepository.save(review);
+}
+
+public String deleteReview(Long id) {
+    Review review = reviewRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Review not found"));
+
+    reviewRepository.delete(review);
+    return "Review deleted successfully";
+}
 }

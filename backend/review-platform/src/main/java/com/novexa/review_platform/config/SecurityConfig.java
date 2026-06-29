@@ -1,6 +1,7 @@
 package com.novexa.review_platform.config;
 
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -14,7 +15,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @RequiredArgsConstructor
@@ -29,51 +30,41 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowedOrigins(List.of("http://localhost:3000"));
-        config.setAllowedMethods(List.of(
-                "GET",
-                "POST",
-                "PUT",
-                "DELETE",
-                "OPTIONS"
-        ));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
-
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
 
         return source;
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http)
-            throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
                 .csrf(csrf -> csrf.disable())
-
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-
                 .authorizeHttpRequests(auth -> auth
 
-                        // Public APIs
+                        // Public basic APIs
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/test",
-                                "/"
+                                "/",
+                                "/uploads/**"
                         ).permitAll()
+
+                        // File upload
+                        .requestMatchers(HttpMethod.POST, "/api/files/upload").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
 
                         // Public GET APIs
                         .requestMatchers(
@@ -81,44 +72,26 @@ public class SecurityConfig {
                                 "/api/software",
                                 "/api/software/**",
                                 "/api/reviews/software/**",
+                                "/api/reviews/user/**",
                                 "/api/ai/**"
                         ).permitAll()
 
-                        // Admin Only
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/software"
-                        ).hasRole("ADMIN")
+                        // Admin software APIs
+                        .requestMatchers(HttpMethod.POST, "/api/software").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/software/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/software/**").hasRole("ADMIN")
 
-                        .requestMatchers(
-                                HttpMethod.PUT,
-                                "/api/software/**"
-                        ).hasRole("ADMIN")
+                        // Review APIs
+                        .requestMatchers(HttpMethod.POST, "/api/reviews").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/reviews/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/reviews/**").hasAnyRole("USER", "ADMIN")
 
-                        .requestMatchers(
-                                HttpMethod.DELETE,
-                                "/api/software/**"
-                        ).hasRole("ADMIN")
+                        // Admin dashboard
+                        .requestMatchers("/api/dashboard/**").hasRole("ADMIN")
 
-                        .requestMatchers(
-                                "/api/dashboard/**"
-                        ).hasRole("ADMIN")
-
-                        // User/Admin Reviews
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/reviews"
-                        ).hasAnyRole("USER", "ADMIN")
-
-                        .anyRequest()
-                        .authenticated()
+                        .anyRequest().authenticated()
                 )
-
-                .addFilterBefore(
-                        jwtAuthFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                )
-
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable());
 
